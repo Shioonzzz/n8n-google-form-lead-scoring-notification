@@ -1,0 +1,546 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "googleform-lead",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "d3b664f3-9146-460a-98be-11955cc8ccab",
+      "name": "Webhook",
+      "webhookId": "REPLACE_WITH_NEW_WEBHOOK_ID"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "bb6bfff8-8677-40ef-95ba-e72c552c1a48",
+              "name": "Whatsapp",
+              "value": "={{ $json.body.whatsapp.replace(/^0/, '62') }}",
+              "type": "string"
+            },
+            {
+              "id": "7fc28f5e-50e7-4885-bbf9-9c3835617617",
+              "name": "Email",
+              "value": "={{ $json.body.email.toLowerCase() }}",
+              "type": "string"
+            },
+            {
+              "id": "4579da4b-4b22-451b-acc3-505910561e2e",
+              "name": "full_name",
+              "value": "={{ $json.body.full_name }}",
+              "type": "string"
+            },
+            {
+              "id": "3a24f61a-03a6-40c0-98a1-40eddc9fc7c7",
+              "name": "service_interest",
+              "value": "={{ $json.body.service_interest }}",
+              "type": "string"
+            },
+            {
+              "id": "145514da-20d1-43b2-b7db-56ba753e1086",
+              "name": "lead_source",
+              "value": "={{ $json.body.lead_source }}",
+              "type": "string"
+            },
+            {
+              "id": "611f4cd3-4a0d-4ace-8165-d650972a0438",
+              "name": "submitted_at",
+              "value": "={{ $json.body.submitted_at }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        192,
+        0
+      ],
+      "id": "5bb30f22-8d29-49a3-b4cd-00f4575cbce2",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b094587a-737a-4716-a22b-141d984444b0",
+              "leftValue": "={{ $json.Email }}",
+              "rightValue": "@",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "4ee50139-0665-4e6c-98b3-47cc8caf12fb",
+              "leftValue": "={{ $json.Whatsapp }}",
+              "rightValue": "@",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        400,
+        0
+      ],
+      "id": "6844476f-adf1-4d29-bf3f-04863b1b2e75",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const data = item.json;\n  \n  // Ambil data dari body (DIPERBAIKI!)\n  const name = data.full_name || data.name || 'Unknown';\n  const email = data.Email || data.email || '';\n  const whatsapp = data.Whatsapp || data.whatsapp || '';\n  const service = data.service_interest || '';\n  const source = data.lead_source || '';\n  const submitted_at = data.submitted_at || new Date().toISOString();\n  \n  // Lead Scoring\n  let score = 0;\n  \n  // 1. Score Service (0-40)\n  if (service.toLowerCase().includes('website')) score += 30;\n  else if (service.toLowerCase().includes('app') || service.toLowerCase().includes('aplikasi')) score += 40;\n  else if (service.toLowerCase().includes('design') || service.toLowerCase().includes('desain')) score += 20;\n  else if (service.toLowerCase().includes('seo') || service.toLowerCase().includes('marketing')) score += 25;\n  else if (service) score += 15;\n  \n  // 2. Score Source (0-30)\n  if (source.toLowerCase().includes('referral') || source.toLowerCase().includes('rekomendasi')) score += 30;\n  else if (source.toLowerCase().includes('google') || source.toLowerCase().includes('search')) score += 25;\n  else if (source.toLowerCase().includes('instagram') || source.toLowerCase().includes('facebook')) score += 20;\n  else if (source.toLowerCase().includes('website')) score += 20;\n  else if (source) score += 10;\n  \n  // 3. Bonus Jam Kerja (0-10)\n  const submittedAt = new Date(submitted_at);\n  const hour = submittedAt.getHours();\n  if (hour >= 9 && hour <= 17) score += 10;\n  \n  // Tentukan kategori\n  let category = 'Cold';\n  let priority = '🔵 Low';\n  let followUpHours = 48;\n  \n  if (score >= 60) {\n    category = 'Hot';\n    priority = '🔴 High';\n    followUpHours = 2;\n  } else if (score >= 40) {\n    category = 'Warm';\n    priority = '🟡 Medium';\n    followUpHours = 24;\n  }\n  \n  // Calculate follow-up\n  const now = new Date();\n  const followUpDate = new Date(now.getTime() + followUpHours * 60 * 60 * 1000);\n  \n  results.push({\n    json: {\n      // Data asli\n      name: name,\n      email: email,\n      whatsapp: whatsapp,\n      service: service,\n      source: source,\n      submitted_at: submitted_at,\n      \n      // Data enrichment\n      score: score,\n      category: category,\n      priority: priority,\n      status: 'New Lead',\n      \n      // Timestamps\n      created_at: now.toISOString(),\n      created_date: now.toLocaleDateString('id-ID'),\n      created_time: now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),\n      \n      // Follow-up\n      follow_up_date: followUpDate.toISOString(),\n      follow_up_readable: followUpDate.toLocaleString('id-ID', { \n        day: '2-digit', \n        month: '2-digit', \n        year: 'numeric',\n        hour: '2-digit', \n        minute: '2-digit' \n      }),\n      \n      // Additional\n      sales_pic: '',\n      notes: '',\n      whatsapp_display: whatsapp.replace(/^62/, '0'),\n      \n      // Tracking flags\n      email_sent: 'Pending',\n      whatsapp_sent: 'Pending',\n      notif_sent: 'Pending'\n    }\n  });\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        -96
+      ],
+      "id": "8778c3c6-e029-437e-88ca-ca7ae4c20760",
+      "name": "Lead Scoring"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_YOUR_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Lead Form Generation",
+          "cachedResultUrl": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1750456305,
+          "mode": "list",
+          "cachedResultName": "CRM Leads",
+          "cachedResultUrl": ""
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $json.created_at }}",
+            "Date": "={{ $json.created_date }}",
+            "Time": "={{ $json.created_time }}",
+            "Name": "={{ $json.name }}",
+            "Email": "={{ $json.email }}",
+            "WhatsApp": "={{ $json.whatsapp }}",
+            "Service": "={{ $json.service }}",
+            "Source": "={{ $json.source }}",
+            "Submitted At": "={{ $json.submitted_at }}",
+            "Score": "={{ $json.score }}",
+            "Category": "={{ $json.category }}",
+            "Priority": "={{ $json.priority }}",
+            "Status": "={{ $json.status }}",
+            "Follow-up Date": "={{ $json.follow_up_date }}",
+            "Sales PIC": "={{ $json.sales_pic }}",
+            "Notes": "={{ $json.notes }}",
+            "Email Sent": "={{ $json.email_sent }}",
+            "WhatsApp Sent": "={{ $json.whatsapp_sent }}",
+            "Notif Sent": "={{ $json.notif_sent }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Time",
+              "displayName": "Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "WhatsApp",
+              "displayName": "WhatsApp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Service",
+              "displayName": "Service",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Source",
+              "displayName": "Source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Submitted At",
+              "displayName": "Submitted At",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Score",
+              "displayName": "Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Category",
+              "displayName": "Category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Priority",
+              "displayName": "Priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Follow-up Date",
+              "displayName": "Follow-up Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Sales PIC",
+              "displayName": "Sales PIC",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Notes",
+              "displayName": "Notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Email Sent",
+              "displayName": "Email Sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "WhatsApp Sent",
+              "displayName": "WhatsApp Sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Notif Sent",
+              "displayName": "Notif Sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        832,
+        -96
+      ],
+      "id": "4c891afd-b9e4-4104-81ab-e6dad08d3f62",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4c48c3c4-41f8-4dfd-a470-10f2d8cf9a4c",
+              "leftValue": "={{ $json.Category }}",
+              "rightValue": "Hot",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1040,
+        -96
+      ],
+      "id": "4cd25b9a-ef63-4513-a122-b2de1bc78a39",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "chatId": "=YOUR_TELEGRAM_CHAT_ID",
+        "text": "=🚨 URGENT: HOT LEAD! 🚨\n\n⚡ SEGERA HUBUNGI DALAM 2 JAM!\n━━━━━━━━━━━━━━━━━━\n\n👤 Nama: {{ $json.Name }}\n📱 WA: {{ $json.WhatsApp }}\n📧 Email: {{ $json.Email }}\n\n💼 Service: {{ $json.Service }}\n📍 Source: {{ $json.Source }}\n📊 Score: {{ $json.Score }}/100\n🎯 Priority: {{ $json.Priority }}\n\n⏰ Submitted: {{ $json.Timestamp }}\n⚠️ Deadline: {{ $('Append row in sheet').item.json['Follow-up Date'] }}\n\n🔥 ACTION REQUIRED: Call Now!",
+        "additionalFields": {
+          "appendAttribution": false,
+          "disable_notification": false,
+          "disable_web_page_preview": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1232,
+        -176
+      ],
+      "id": "7fa9d161-7a6e-4574-bbd0-d6c2ab9e912b",
+      "name": "Priority High",
+      "webhookId": "d1f2b2c2-7b09-4276-94c0-3d410ab89e6f",
+      "credentials": {
+        "telegramApi": {
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "=YOUR_TELEGRAM_CHAT_ID",
+        "text": "=📋 New Lead - {{ $json.Category }}\n\n👤 Nama: {{ $json.Name }}\n📱 WA: {{ $json.WhatsApp }}\n📧 Email: {{ $json.Email }}\n\n💼 Service: {{ $json.Service }}\n📍 Source: {{ $json.Source }}\n📊 Score: {{ $json.Score }}/100\n🎯 Priority: {{ $json.Priority }}\n\n⏰ Follow-up: {{ $json['Follow-up Date'] }}\n\n💬 _Regular follow-up scheduled_",
+        "additionalFields": {
+          "appendAttribution": false,
+          "disable_notification": false,
+          "disable_web_page_preview": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1232,
+        -32
+      ],
+      "id": "3c4a0c09-f711-45f7-ac1b-47418a62e0b4",
+      "name": "Low/Medium Priority",
+      "webhookId": "d1f2b2c2-7b09-4276-94c0-3d410ab89e6f",
+      "credentials": {
+        "telegramApi": {
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Lead Scoring",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead Scoring": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Priority High",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Low/Medium Priority",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "REDACTED"
+  }
+}
