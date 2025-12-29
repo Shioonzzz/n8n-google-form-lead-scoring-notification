@@ -413,7 +413,7 @@
     {
       "parameters": {
         "chatId": "=YOUR_TELEGRAM_CHAT_ID",
-        "text": "=🚨 URGENT: HOT LEAD! 🚨\n\n⚡ SEGERA HUBUNGI DALAM 2 JAM!\n━━━━━━━━━━━━━━━━━━\n\n👤 Nama: {{ $json.Name }}\n📱 WA: {{ $json.WhatsApp }}\n📧 Email: {{ $json.Email }}\n\n💼 Service: {{ $json.Service }}\n📍 Source: {{ $json.Source }}\n📊 Score: {{ $json.Score }}/100\n🎯 Priority: {{ $json.Priority }}\n\n⏰ Submitted: {{ $json.Timestamp }}\n⚠️ Deadline: {{ $('Append row in sheet').item.json['Follow-up Date'] }}\n\n🔥 ACTION REQUIRED: Call Now!",
+        "text": "=🚨 URGENT: HOT LEAD! 🚨\n\n⚡ CALL IMMEDIATELY WITHIN 2 HOURS!\n━━━━━━━━━━━━━━━━━━\n\n👤 Nama: {{ $json.Name }}\n📱 WA: {{ $json.WhatsApp }}\n📧 Email: {{ $json.Email }}\n\n💼 Service: {{ $json.Service }}\n📍 Source: {{ $json.Source }}\n📊 Score: {{ $json.Score }}/100\n🎯 Priority: {{ $json.Priority }}\n\n⏰ Submitted: {{ $json.Timestamp }}\n⚠️ Deadline: {{ $('Append row in sheet').item.json['Follow-up Date'] }}\n\n🔥 ACTION REQUIRED: Call Now!",
         "additionalFields": {
           "appendAttribution": false,
           "disable_notification": false,
